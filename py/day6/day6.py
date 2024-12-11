@@ -32,16 +32,17 @@ def find_guard(grid):
 				return (x,y)
 	return False
 
+# Return path, and indicator if cycle found.
 def trace_path(start, h, dim, grid):
 	(x1,y1) = start
 	(num_x, num_y) = dim
-	path = {start}
+	path = {(x1,y1,h)}
 	block = ord('#')
 	while True:
 		if h == 0:
 			y2 = y1 - 1
 			if not valid_coord(y2, num_y):
-				return path
+				return path,False
 			elif grid[x1, y2] == block:
 				h = (h + 1) % 4
 				continue
@@ -50,7 +51,7 @@ def trace_path(start, h, dim, grid):
 		elif h == 1:
 			x2 = x1 + 1
 			if not valid_coord(x2, num_x):
-				return path
+				return path,False
 			elif grid[x2, y1] == block:
 				h = (h + 1) % 4
 				continue
@@ -59,7 +60,7 @@ def trace_path(start, h, dim, grid):
 		elif h == 2:
 			y2 = y1 + 1
 			if not valid_coord(y2, num_y):
-				return path
+				return path,False
 			elif grid[x1,y2] == block:
 				h = (h + 1) % 4
 				continue
@@ -68,7 +69,7 @@ def trace_path(start, h, dim, grid):
 		elif h == 3:
 			x2 = x1 - 1
 			if not valid_coord(x2, num_x):
-				return path
+				return path,False
 			elif grid[x2,y1] == block:
 				h = (h + 1) % 4
 				continue
@@ -78,22 +79,47 @@ def trace_path(start, h, dim, grid):
 			print("Error - illegal value for heading h=", h)
 			break
 
-		path.add((x1,y1))
+		# Detect cycles in the path.
+		if (x1,y1,h) in path:
+			return path,True
+		else:
+			path.add((x1,y1,h))
 
-	return False
+	return {},False
+
+def distinct_locations(path):
+	return {(x,y) for (x,y,_) in path}
 
 def part1_for(file_name):
 	lines = read_input(file_name)
 	grid = process_lines(lines)
 	(x,y) = find_guard(grid)
 	(g, num_x, num_y) = grid
-	path = trace_path((x,y), 0, (num_x, num_y), g)
-	result = len(path)
+	path,_ = trace_path((x,y), 0, (num_x, num_y), g)
+	visits = distinct_locations(path)
+	result = len(visits)
+	return result
+
+def find_cycle_obstacle_points(path, start, grid):
+	(g, num_x, num_y) = grid
+	result = {}
+	for change in path:
+		(x,y,_) = change
+		g[x, y] = ord('#')
+		_,cycle_flag = trace_path(start, 0, (num_x, num_y), g)
+		if cycle_flag and (x,y) != start:
+			result[(x,y)] = 1
+		g[x,y] = ord('.')
 	return result
 
 def part2_for(file_name):
 	lines = read_input(file_name)
-	count = 0
+	grid = process_lines(lines)
+	(x,y) = find_guard(grid)
+	(g, num_x, num_y) = grid
+	path,_ = trace_path((x,y), 0, (num_x, num_y), g)
+	obstacles = find_cycle_obstacle_points(path, (x,y), grid)
+	count = len(obstacles)
 	return count
 
 # Files.
@@ -110,13 +136,13 @@ print('Running full input...')
 count = part1_for(input_file)
 print(f"Result is {count}")
 
-# print('Part 2.')
-# print('Running test...')
-# count = part2_for(test_file)
-# print(f"Result is {count}")
+print('Part 2.')
+print('Running test...')
+count = part2_for(test_file)
+print(f"Result is {count}")
 
-# print('Running full input...')
-# count = part2_for(input_file)
-# print(f"Result is {count}")
+print('Running full input...')
+count = part2_for(input_file)
+print(f"Result is {count}")
 
 print("Done")
