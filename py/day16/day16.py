@@ -3,7 +3,6 @@
 #
 
 import numpy as np
-import re
 
 # Files.
 test_file_a = 'test16a.txt'
@@ -86,23 +85,25 @@ def node_in_queue(node, queue):
 			return (node, k)
 	return False
 
-# Unroll the path from the given map of previous nodes.
-def path_from_prev(prev, target):
-	s = []
-	u = target
-	if u in prev:
-		while u:
-			s.insert(0, u)
-			u = prev[u]
-	return s
+# Unroll the paths from the given map of previous nodes.
+def paths_from_prev(prev, target):
+	paths = []
+	if target in prev and len(prev[target]) > 0:
+		for u in prev[target]:
+			for path in paths_from_prev(prev, u):
+				path.append(target)
+				paths.append(path)
+	else:
+		paths.append([target])
+	return paths
 
 def is_node_goal(node, goal):
 	(xn,yn,_) = node
 	(xg,yg,_) = goal
 	return xn == xg and yn == yg
 
-# Shortest path using Dijkstra's algorithm.
-def shortest_path(start, finish, dim, grid):
+# Find ALL Shortest paths using Dijkstra's algorithm.
+def shortest_paths(start, finish, dim, grid):
 	global max_distance
 	# Queue to be sorted (ascending) by distance from start node.
 	(num_x,num_y) = dim
@@ -114,14 +115,16 @@ def shortest_path(start, finish, dim, grid):
 			if grid[x,y] == ord('.'):
 				for h in ['n','e','s','w']:
 					all_nodes.append((x,y,h))
-					prev[(x,y,h)] = None
+					# prev[(x,y,h)] = None
 
 	all_nodes.remove(start)
+	# Set up priority order queue.
 	q = dict()
 	q[max_distance] = all_nodes
 	q[0] = [start]
 	# Look at paths from start of increasing length.
 	g = 0
+	shortest_path_cost = 0
 	while len(q) > 0:
 		# Get minimum distance node out of q.
 		while g not in q:
@@ -129,6 +132,14 @@ def shortest_path(start, finish, dim, grid):
 		# If we reach infinity there's no path there.
 		if g >= max_distance:
 			break
+		# Quit if all shortest paths found.
+		if shortest_path_cost and g > shortest_path_cost:
+			paths = []
+			for h in ['n','e','s','w']:
+				u = (finish[0], finish[1], h)
+				paths1 = [p for p in paths_from_prev(prev, u) if p[0] == start]
+				paths = paths + paths1
+			return (None,None) if len(paths) == 0 else (paths,shortest_path_cost)
 		# Remove shortest path node.
 		nodes = q[g]
 		if len(nodes) == 0:
@@ -136,16 +147,15 @@ def shortest_path(start, finish, dim, grid):
 			g += 1
 			continue
 		u = nodes.pop()
-		# Detect goal node.
-		if is_node_goal(u, finish):
-			path = path_from_prev(prev, u)
-			return None if len(path) == 0 else (path,g)
 		# Update the queue.
 		if len(nodes) > 0:
 			q[g] = nodes
 		else:
 			del q[g]
-		
+		# Detect goal node.
+		if is_node_goal(u, finish):
+			shortest_path_cost = g
+			continue
 		# Explore from u to neighbouring nodes.
 		neighbours = find_neighbours(u, grid)
 		for (m, c, v) in neighbours:
@@ -154,33 +164,33 @@ def shortest_path(start, finish, dim, grid):
 			if in_queue:
 				alt = g + c
 				d = in_queue[1]		# Previously recorded distance.
-				if alt < d:
+				if alt <= d:
 					q[d].remove(v)
 					if alt in q:
 						q[alt].append(v)
 					else:
 						q[alt] = [v]
-					prev[v] = u
-	return None
-
-def display_grid():
-	print("Grid:")
-	for y in range(num_y):
-		line = ''
-		for x in range(num_x):
-			line += chr(g_grid[x,y])
-		print(line)
+					if v not in prev:
+						prev[v] = [u]
+					else:
+						prev[v].append(u)
+	return (None,None)
 
 def part1_for(file_name):
 	lines = read_input(file_name)
 	(grid, (num_x, num_y), start, goal) = process_lines(lines)
-	(path,cost) = shortest_path(start, goal, (num_x, num_y), grid)
-	path_length =  len(path) - 1
+	(paths,cost) = shortest_paths(start, goal, (num_x, num_y), grid)
 	return cost
 
 def part2_for(file_name):
-	score = 0
-	return score
+	lines = read_input(file_name)
+	(grid, (num_x, num_y), start, goal) = process_lines(lines)
+	(paths,cost) = shortest_paths(start, goal, (num_x, num_y), grid)
+	nodes = set()
+	for p in paths:
+		for (x,y,h) in p:
+			nodes.add((x,y))
+	return len(nodes)
 
 # Main processing.
 print('Advent of Code 2024 - Day 15, Part 1.')
@@ -196,17 +206,17 @@ print('Running full input...')
 count = part1_for(input_file)
 print(f"Result is {count}")
 
-# print('Part 2.')
-# print('Running small test...')
-# count = part2_for(test_file_a)
-# print(f"Result is {count}")
+print('Part 2.')
+print('Running small test...')
+count = part2_for(test_file_a)
+print(f"Result is {count}")
 
-# print('Running bigger test...')
-# count = part2_for(test_file_b)
-# print(f"Result is {count}")
+print('Running bigger test...')
+count = part2_for(test_file_b)
+print(f"Result is {count}")
 
-# print('Running full input...')
-# count = part2_for(input_file)
-# print(f"Result is {count}")
+print('Running full input...')
+count = part2_for(input_file)		# NOT 586 
+print(f"Result is {count}")
 
 print("Done")
