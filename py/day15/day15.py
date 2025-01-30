@@ -127,9 +127,9 @@ def move_robot2(rx, ry, dx, dy):
 			if is_box_seen:
 				for x1 in range(x, rx, -dx):
 					g_grid[x1,y] = g_grid[x1 - dx, y]
-			g_grid[rx + dx, ry + dy] = crob
+			g_grid[rx + dx, ry] = crob
 			g_grid[rx,ry] = cdot
-			(rx,ry) = (rx + dx, ry + dy)
+			(rx,ry) = (rx + dx, ry)
 	# Vertical move - more complicated.
 	elif g_grid[x,y] in [cbox1,cbox2]:
 		box_moves = [(x,y)]
@@ -154,12 +154,17 @@ def move_robot2(rx, ry, dx, dy):
 			i += 1
 		if move_ok:
 			# Move each box vertically and backfill with '.' if needed.
+			new_state = []
 			for (x1,y1) in reversed(box_moves):
 				(x2,y2) = (x1 + dx, y1 + dy)
 				(x3,y3) = (x1 - dx, y1 - dy)
+				new_state.append((x2, y2, g_grid[x1, y1]))
 				g_grid[x2,y2] = g_grid[x1,y1]
 				if (x3,y3) not in box_moves:
-					g_grid[x1,y1] = cdot
+					new_state.append((x1, y1, cdot))
+
+			for (x4,y4,ch) in new_state:
+				g_grid[x4,y4] = ch
 
 			g_grid[rx + dx, ry + dy] = crob
 			g_grid[rx,ry] = cdot
