@@ -41,6 +41,22 @@ def simulate_bots(bots, num_x, num_y, num_steps):
 		after.append(((x,y),(vx,vy)))
 	return after
 
+def bot_stats(bots):
+	xsum,ysum = 0,0
+	x2sum,y2sum =  0,0
+	n = 0
+	for ((x,y),_) in bots:
+		xsum += x
+		x2sum += (x * x)
+		ysum += y
+		y2sum += (y * y)
+		n += 1
+	xmean = xsum / n
+	ymean = ysum / n
+	xvar = (n * x2sum - xsum * xsum) / (n * (n - 1))
+	yvar = (n * y2sum - ysum * ysum) / (n * (n - 1))
+	return ((xmean,ymean), (xvar, yvar))
+
 def quadrant_counts(bots, num_x, num_y):
 	(q0,q1,q2,q3) = (0,0,0,0)
 	x_axis = num_x // 2
@@ -101,18 +117,27 @@ def part2_for(file_name, test_run):
 	bots = process_lines(lines)
 	(num_x,num_y) = (11,7) if test_run else (101,103)
 	count = 1
+	theta_xv = (num_x / 2) ** 2
+	theta_yv = (num_y / 2) ** 2
 	while True:
 		bots = simulate_bots(bots, num_x, num_y, 1)
-		print(f"Count = {count}")
-		display_bots(bots, num_x, num_y)
-		tp,tn = tree_counts(bots, num_x, num_y)
-		score = tp * 100.0 / len(bots) 
-		print('Score:', score)
-		if score > 60.0:
+		((xm,ym), (xv,yv)) = bot_stats(bots)
+		if xv < theta_xv and yv < theta_yv:
+			print(f"Count = {count}")
+			display_bots(bots, num_x, num_y)
+			tp,tn = tree_counts(bots, num_x, num_y)
+			score = tp * 100.0 / len(bots) 
+			print('Score:', score)
 			print("Tree?")
 			ch = input()
 			if ch == "q":
 				break
+			elif ch == "n":
+				theta_xv *= 0.9
+				theta_yv *= 0.9
+			elif ch == "w":
+				theta_xv *= 1.1
+				theta_yv *= 1.1
 		count += 1
 	return count
 
