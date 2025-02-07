@@ -193,6 +193,35 @@ def trace_timings(path):
 			cost += 1
 	return locations
 
+def distance(p1, p2):
+	(x1,y1) = p1
+	(x2,y2) = p2
+	d = abs(x1 - x2) + abs(y1 - y2)
+	return d
+
+def find_complex_cheats(timings, grid, dim):
+	cheats = {}
+	cdot = ord('.')
+	(num_x, num_y) = dim
+	for (x1,y1) in timings.keys():
+		cost1 = timings[(x1,y1)]
+
+		for dy in range(0, 21):
+			for x2 in range(x1 - 20 + dy, x1 + 21 - dy, 1):
+				if not valid_coord(x2, num_x):
+					continue
+				if dy == 0 and x2 == x1:
+					continue
+
+				for y2 in [y1 - dy, y1 + dy]:
+					if valid_coord(y2, num_y) and grid[x2, y2] == cdot:
+						if (x2,y2) in timings:
+							cost2 = timings[(x2,y2)]
+							saving = (cost2 - cost1 - distance((x1,y1), (x2,y2)))
+							if saving > 0:
+								cheats[(x1,y1,x2,y2)] = saving
+	return cheats
+
 def find_simple_cheats(timings, grid, dim):
 	cheats = {}
 	cwall = ord('#')
@@ -261,15 +290,19 @@ def part1_for(file_name):
 			count += f
 	return count
 
-def part2_for(file_name):
+def part2_for(file_name, limit):
 	lines = read_input(file_name)
 	(grid, (num_x, num_y), start, goal) = process_lines(lines)
 	(paths,cost) = shortest_paths(start, goal, (num_x, num_y), grid)
-	nodes = set()
-	for p in paths:
-		for (x,y,h) in p:
-			nodes.add((x,y))
-	return len(nodes)
+	timings = trace_timings(paths[0])
+	cheats = find_complex_cheats(timings, grid, (num_x, num_y))
+	freq = saving_frequencies(cheats)
+	count = 0
+	for (s,f) in freq.items():
+		print(f'{f} cheats save {s} picoseconds')
+		if s >= limit:
+			count += f
+	return count
 
 # Main processing.
 print('Advent of Code 2024 - Day 20, Part 1.')
@@ -281,13 +314,13 @@ print('Running full input...')
 count = part1_for(input_file)
 print(f"Result is {count}")
 
-# print('Part 2.')
-# print('Running test...')
-# count = part2_for(test_file)
-# print(f"Result is {count}")
+print('Part 2.')
+print('Running test...')
+count = part2_for(test_file, 50)
+print(f"Result is {count}")
 
-# print('Running full input...')
-# count = part2_for(input_file)
-# print(f"Result is {count}")
+print('Running full input...')
+count = part2_for(input_file, 100)
+print(f"Result is {count}")
 
 print("Done")
