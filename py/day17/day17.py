@@ -109,6 +109,12 @@ def exec_program(program, registers):
 		(registers, out, pc, halt_flag) = exec_step(program, registers, out, pc)
 	return out
 
+def part1_for(file_name):
+	lines = read_input(file_name)
+	(registers, program) = process_lines(lines)
+	out = exec_program(program, registers)
+	return ','.join([str(r) for r in out])
+
 def exec_and_match_program(program, registers):
 	expect = program.copy()
 	out = []
@@ -123,15 +129,6 @@ def exec_and_match_program(program, registers):
 				else:
 					expect.pop(0)
 	return (len(expect) == 0)
-
-def part1_for(file_name):
-	lines = read_input(file_name)
-	(registers, program) = process_lines(lines)
-	out = exec_program(program, registers)
-	return ','.join([str(r) for r in out])
-
-
-p2 = { 0:1, 1:2, 2:4, 3:8, 4:16, 5:32, 6:64, 7:128, 8:256 }
 
 def custom(arg_a):
 	a = arg_a
@@ -153,9 +150,19 @@ def custom(arg_a):
 		
 	return arg_a
 
+# Print lookup table for given forward index.
+def binary_table(fwd):
+	for i in range(128):
+		bin_string = f"{i:08b}"
+		formatted_binary = ' '.join(bin_string[i:i+4] for i in range(0, len(bin_string), 4))
+		out = fwd[i]
+		print(f"{i:4d} -> {i:02x} -> {formatted_binary} --> {out}")
+
+# Function equivalent to single pass of input program.
 def output(a):
 	return (((a & 7) ^ 1) ^ (a >> ((a & 7) ^ 1)) ^ 6) & 7
 
+# Find the input sequence (from in_options) to produce expected outputs.
 def find_input_sequence(exp_outputs, in_options):
 	e = exp_outputs[0]
 	for in1 in in_options[0]:
@@ -167,10 +174,6 @@ def find_input_sequence(exp_outputs, in_options):
 				if op1 == e:
 					pass
 					
-
-
-
-
 # 265220867825053 too high.
 
 # def custom_2411750347165530
@@ -186,12 +189,11 @@ def custom2(arg_a):
 		fwd[a] = e
 
 	binary_table(fwd)
-	
 	print(f"Expected = {exp_sequence}")
 
 	# Options for each 3 bit output	
 	in_options = [bwd[e] for e in exp_sequence]
-	ins = find_input_sequence(exp_sequence, in_options)
+	ins = find_input_sequence(exp_sequence, in_options)			# WIP HERE!
 
 	a = 0
 	for i in reversed(ins):
@@ -240,6 +242,7 @@ def custom2(arg_a):
 		
 	return arg_a
 
+# Custom part 2 for test example.
 def custom_035430(arg_a):
 	exp_sequence = [0,3,5,4,3,0]
 	while True:
@@ -264,6 +267,7 @@ def custom_035430(arg_a):
 
 	return arg_a
 
+# Not used.
 def part2_for(file_name, seed, expected):
 	lines = read_input(file_name)
 	(registers0, program) = process_lines(lines)
@@ -271,13 +275,6 @@ def part2_for(file_name, seed, expected):
 	while not custom2(a, expected):
 		a += 1
 	return a
-
-def binary_table(fwd):
-	for i in range(128):
-		bin_string = f"{i:08b}"
-		formatted_binary = ' '.join(bin_string[i:i+4] for i in range(0, len(bin_string), 4))
-		out = fwd[i]
-		print(f"{i:4d} -> {i:02x} -> {formatted_binary} --> {out}")
 
 # Main processing.
 print('Advent of Code 2024 - Day 17, Part 1.')
