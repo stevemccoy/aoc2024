@@ -130,18 +130,154 @@ def part1_for(file_name):
 	out = exec_program(program, registers)
 	return ','.join([str(r) for r in out])
 
-def part2_for(file_name, seed):
+
+p2 = { 0:1, 1:2, 2:4, 3:8, 4:16, 5:32, 6:64, 7:128, 8:256 }
+
+def custom(arg_a):
+	a = arg_a
+	b = c = 0
+	exp_sequence = [2,4,1,1,7,5,0,3,4,7,1,6,5,5,3,0]
+
+	while a != 0:
+		b = (a & 7) ^ 1
+		c = (a >> b)
+		a = (a >> 3)
+		b = (b ^ c) ^ 6
+		if b > 7:
+			return False
+		e = exp_sequence.pop(0)
+		if b != e:
+			return False
+		if len(exp_sequence) == 0:
+			break
+		
+	return arg_a
+
+def output(a):
+	return (((a & 7) ^ 1) ^ (a >> ((a & 7) ^ 1)) ^ 6) & 7
+
+def find_input_sequence(exp_outputs, in_options):
+	e = exp_outputs[0]
+	for in1 in in_options[0]:
+		for in2 in in_options[1]:
+			for in3 in in_options[2]:
+				a = (in3 * 8 + in2) * 8 + in1
+				ar = a & 127
+				op1 = output(ar)
+				if op1 == e:
+					pass
+					
+
+
+
+
+# 265220867825053 too high.
+
+# def custom_2411750347165530
+# Main input file program.
+def custom2(arg_a):
+	exp_sequence = [2,4,1,1,7,5,0,3,4,7,1,6,5,5,3,0]
+	# Backward and forward indexes of the output function.
+	bwd = {i:[] for i in range(8)}
+	fwd = {}
+	for a in range(0, 128):
+		e = output(a)
+		bwd[e].append(a)
+		fwd[a] = e
+
+	binary_table(fwd)
+	
+	print(f"Expected = {exp_sequence}")
+
+	# Options for each 3 bit output	
+	in_options = [bwd[e] for e in exp_sequence]
+	ins = find_input_sequence(exp_sequence, in_options)
+
+	a = 0
+	for i in reversed(ins):
+		a = (a << 3) + i
+	print(f"Derived a = {a}")
+	bin_string = f"{a:063b}"
+	formatted_binary = ' '.join(bin_string[i:i+3] for i in range(0, len(bin_string), 3))
+	print(f" = {formatted_binary}")
+	arg_a = a
+
+	ns = len(exp_sequence)
+	while True:
+		a = arg_a
+		b = c = 0
+		i = 0
+		r = True
+		while a != 0:
+
+			b = output(a)
+
+			# # bst [a]
+			# # bxl 1
+			# b = (a & 7) ^ 1
+			# # cdv [b]
+			# c = (a >> b)
+			# # adv 3
+			# a = (a >> 3)
+			# # bxc
+			# # bxl 6
+			# b = (b ^ c) ^ 6
+			# # out [b % 8]
+
+			e = exp_sequence[i]
+			i += 1
+			if b != e:
+			# if (b & 7) != e:
+				r = False
+				break
+			if i >= ns:
+				break
+
+		if r and a == 0 and i >= ns:
+			break
+			
+		arg_a += 1
+		
+	return arg_a
+
+def custom_035430(arg_a):
+	exp_sequence = [0,3,5,4,3,0]
+	while True:
+		a = arg_a
+		b = c = 0
+		es = exp_sequence.copy()
+		r = True
+		while a != 0:
+			a = a // 8
+			e = es.pop(0)
+			if (a & 7) != e:
+				r = False
+				break
+			if len(es) == 0:
+				break
+		
+		if r and a == 0:
+			if len(es) == 0:
+				break
+
+		arg_a += 1
+
+	return arg_a
+
+def part2_for(file_name, seed, expected):
 	lines = read_input(file_name)
 	(registers0, program) = process_lines(lines)
 	a = seed
-	while True:
-		registers = registers0.copy()
-		registers['A'] = a
-		if exec_and_match_program(program, registers):
-			print('Program', program, '\ngenerated itself for seed value of A=', a)
-			break
+	while not custom2(a, expected):
 		a += 1
 	return a
+
+def binary_table(fwd):
+	for i in range(128):
+		bin_string = f"{i:08b}"
+		formatted_binary = ' '.join(bin_string[i:i+4] for i in range(0, len(bin_string), 4))
+		out = fwd[i]
+		print(f"{i:4d} -> {i:02x} -> {formatted_binary} --> {out}")
 
 # Main processing.
 print('Advent of Code 2024 - Day 17, Part 1.')
@@ -155,11 +291,11 @@ print(f"Result is {count}")
 
 print('Part 2.')
 print('Running test...')
-count = part2_for(test_file_b, 0)
+count = custom_035430(1)
 print(f"Result is {count}")
 
 print('Running full input...')
-count = part2_for(input_file, 35184372088832)
+count = custom2(1 << 46)
 print(f"Result is {count}")
 
 print("Done")
