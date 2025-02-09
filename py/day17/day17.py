@@ -162,17 +162,53 @@ def binary_table(fwd):
 def output(a):
 	return (((a & 7) ^ 1) ^ (a >> ((a & 7) ^ 1)) ^ 6) & 7
 
-# Find the input sequence (from in_options) to produce expected outputs.
-def find_input_sequence(exp_outputs, in_options):
-	e = exp_outputs[0]
-	for in1 in in_options[0]:
-		for in2 in in_options[1]:
-			for in3 in in_options[2]:
-				a = (in3 * 8 + in2) * 8 + in1
-				ar = a & 127
-				op1 = output(ar)
-				if op1 == e:
-					pass
+p2 = {1:2, 2:4, 3:8, 4:16, 5:32, 6:64, 7:128, 8:256}
+
+def num_bits(n):
+	i = 1
+	p = 2
+	while True:
+		if p > n:
+			return i
+		i += 1
+		p *= 2
+
+# Find the input sequence (from in_options) to produce expected outputs in the given triple.
+def find_input_sequence(outputs, input_options):
+	e = outputs[0]
+	for in1 in input_options[0]:
+		in1_rbits = (in1 & 7) ^ 1		# Number of bits relevant to this function call.
+		in1_nbits = num_bits(in1)		# Number of bits needed to hold value in1.
+		in1_rbits -= 3					# Residual number of bits to match.
+		if nb1 > 0:
+			mask = p2[nb1] - 1
+			in1_to_match = (in1 >> 3) & mask
+			for in2 in input_options[1]:
+				if in2 & mask == 
+
+
+
+		if nb <= 3:
+			yield [in1]
+		else:
+			for in2 in input_options[1]:
+				if (in2 & 7) == ((in1 >> 3) & 7):
+					a2 = in2 * 8 + in1
+					if nb > 6:
+						for in3 in input_options[2]:
+							if (in3 & 1) == ((in2 >> 3) & 1):
+								a = a2 * 8 + in3
+								op0 = output(a)
+								ar = a & 127
+								op1 = output(ar)
+								if op1 == e:
+									yield [in1,in2,in3]
+					else:
+						op0 = output(a)
+						ar = a & 127
+						op1 = output(ar)
+						if op1 == e:
+							yield [in1,in2]
 					
 # 265220867825053 too high.
 
@@ -183,7 +219,7 @@ def custom2(arg_a):
 	# Backward and forward indexes of the output function.
 	bwd = {i:[] for i in range(8)}
 	fwd = {}
-	for a in range(0, 128):
+	for a in range(0, 512):
 		e = output(a)
 		bwd[e].append(a)
 		fwd[a] = e
@@ -193,7 +229,8 @@ def custom2(arg_a):
 
 	# Options for each 3 bit output	
 	in_options = [bwd[e] for e in exp_sequence]
-	ins = find_input_sequence(exp_sequence, in_options)			# WIP HERE!
+	for s in find_input_sequence(exp_sequence[0:3], in_options[0:3]):
+		print(s)			# WIP HERE!
 
 	a = 0
 	for i in reversed(ins):
