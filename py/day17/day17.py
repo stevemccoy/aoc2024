@@ -162,7 +162,7 @@ def binary_table(fwd):
 def output(a):
 	return (((a & 7) ^ 1) ^ (a >> ((a & 7) ^ 1)) ^ 6) & 7
 
-p2 = {1:2, 2:4, 3:8, 4:16, 5:32, 6:64, 7:128, 8:256}
+p2 = {1:2, 2:4, 3:8, 4:16, 5:32, 6:64, 7:128, 8:256, 9:512, 10:1024}
 
 def num_bits(n):
 	i = 1
@@ -173,42 +173,103 @@ def num_bits(n):
 		i += 1
 		p *= 2
 
-# Find the input sequence (from in_options) to produce expected outputs in the given triple.
+# Find the input sequence (from in_options) to produce expected outputs.
 def find_input_sequence(outputs, input_options):
-	e = outputs[0]
-	for in1 in input_options[0]:
-		in1_rbits = (in1 & 7) ^ 1		# Number of bits relevant to this function call.
-		in1_nbits = num_bits(in1)		# Number of bits needed to hold value in1.
-		in1_rbits -= 3					# Residual number of bits to match.
-		if nb1 > 0:
-			mask = p2[nb1] - 1
-			in1_to_match = (in1 >> 3) & mask
-			for in2 in input_options[1]:
-				if in2 & mask == 
+
+	i = 0
+	ns = len(outputs)
+	req_value = 0
+	req_mask = 0
+	sequence = [0 for _ in range(ns)]
+	watermark = 0
+
+	while i < ns:
+		found_match = False
+		for in1 in input_options[i]:
+			if in1 <= watermark:
+				continue
+
+			nbits = num_bits(in1)
+			if nbits < 3:
+				nbits = 3
+			in_mask = p2[nbits] - 1
+			mask = req_mask & in_mask
+
+			if req_mask == 0:
+				found_match = True
+				sequence[i] = in1
+				i += 1
+				req_mask = in_mask >> 3
+				req_value = in1 >> 3
+				watermark = 0
+				break
+
+			elif (req_value & mask) == (in1 & mask):
+				found_match = True
+				sequence[i] = in1
+				i += 1			
+				matched_part = (in1 & mask)
+				req_value -= matched_part
+
+				# May need to apply any bits from in1 which have not already been dealt with.
+				# Need to make sure that the following works (probably its mutually exclusive according to whether req or in1 is longer bit sequence).
+				req_value += (in1 - matched_part)
+
+				mask = req_mask | in_mask
+				req_mask = mask >> 3
+				req_value = req_value >> 3
+				watermark = 0
+				break
+
+		if not found_match:
+			sequence[i] = 0
+			if i <= 0:
+				print('No sequence found. Quitting')
+				return None
+			i -= 1
+			watermark = sequence[i]
+
+	return sequence
 
 
 
-		if nb <= 3:
-			yield [in1]
-		else:
-			for in2 in input_options[1]:
-				if (in2 & 7) == ((in1 >> 3) & 7):
-					a2 = in2 * 8 + in1
-					if nb > 6:
-						for in3 in input_options[2]:
-							if (in3 & 1) == ((in2 >> 3) & 1):
-								a = a2 * 8 + in3
-								op0 = output(a)
-								ar = a & 127
-								op1 = output(ar)
-								if op1 == e:
-									yield [in1,in2,in3]
-					else:
-						op0 = output(a)
-						ar = a & 127
-						op1 = output(ar)
-						if op1 == e:
-							yield [in1,in2]
+
+
+
+	# e = outputs[0]
+	# for in1 in input_options[0]:
+	# 	in1_rbits = (in1 & 7) ^ 1		# Number of bits relevant to this function call.
+	# 	in1_nbits = num_bits(in1)		# Number of bits needed to hold value in1.
+	# 	in1_rbits -= 3					# Residual number of bits to match.
+	# 	if nb1 > 0:
+	# 		mask = p2[nb1] - 1
+	# 		in1_to_match = (in1 >> 3) & mask
+	# 		for in2 in input_options[1]:
+	# 			if in2 & mask == 
+
+
+
+	# 	if nb <= 3:
+	# 		yield [in1]
+	# 	else:
+	# 		for in2 in input_options[1]:
+	# 			if (in2 & 7) == ((in1 >> 3) & 7):
+	# 				a2 = in2 * 8 + in1
+	# 				if nb > 6:
+	# 					for in3 in input_options[2]:
+	# 						if (in3 & 1) == ((in2 >> 3) & 1):
+	# 							a = a2 * 8 + in3
+	# 							op0 = output(a)
+	# 							ar = a & 127
+	# 							op1 = output(ar)
+	# 							if op1 == e:
+	# 								yield [in1,in2,in3]
+	# 				else:
+	# 					op0 = output(a)
+	# 					ar = a & 127
+	# 					op1 = output(ar)
+	# 					if op1 == e:
+	# 						yield [in1,in2]
 					
 # 265220867825053 too high.
 
@@ -229,13 +290,16 @@ def custom2(arg_a):
 
 	# Options for each 3 bit output	
 	in_options = [bwd[e] for e in exp_sequence]
-	for s in find_input_sequence(exp_sequence[0:3], in_options[0:3]):
-		print(s)			# WIP HERE!
+
+	ins = find_input_sequence(exp_sequence, in_options)
+
+	# for s in find_input_sequence(exp_sequence[0:3], in_options[0:3]):
+	# 	print(s)			# WIP HERE!
 
 	a = 0
 	for i in reversed(ins):
 		a = (a << 3) + i
-	print(f"Derived a = {a}")
+	print(f"Derived a = {a}")		# 265220867825053 too high.
 	bin_string = f"{a:063b}"
 	formatted_binary = ' '.join(bin_string[i:i+3] for i in range(0, len(bin_string), 3))
 	print(f" = {formatted_binary}")
