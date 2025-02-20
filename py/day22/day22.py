@@ -107,13 +107,10 @@ def part2_for(file_name):
 
 # Main processing.
 print('Advent of Code 2024 - Day 22, Part 1.')
-print('Running test...')
-count = part1_for(test_file)
-print(f"Result is {count}")
 
-# print('Running full input...')
-# count = part1_for(input_file)
-# print(f"Result is {count}")
+print('Running full input...')
+count = part1_for(input_file)
+print(f"Result is {count}")
 
 # print('Part 2.')
 # print('Running test...')
