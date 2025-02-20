@@ -13,33 +13,38 @@ input_file = 'input25.txt'
 # Infinity distance.
 max_distance = 70 * 70
 
+num_x = 5
+num_y = 7
+
 # Read the contents of the given file.
 def read_input(file_name):
 	with open(file_name, 'r') as f:
 		return [line.strip() for line in f if len(line) > 0]
 	return False
 
-# Set up the maze, start and goal positions, from input lines.
+# Read the lock and key schemes from the raw lines.
 def process_lines(lines):
-	global max_distance
-	start = None
-	goal = None
-	num_y = len(lines)
-	num_x = len(lines[0])
-	max_distance = num_x * num_y * 1000
-	grid = np.zeros((num_x, num_y), np.int8)
-	for y in range(num_y):
-		line = lines[y]
-		for x in range(num_x):
-			ch = line[x]
-			if ch == 'S':
-				start = (x,y,'e')
-				ch = '.'
-			elif ch == 'E':
-				goal = (x,y,'e')
-				ch = '.'
-			grid[x,y] = ord(ch)
-	return (grid, (num_x, num_y), start, goal)
+	
+	locks = []
+	keys = []
+	i = 0
+
+	while i < (len(lines) - num_y):
+		grid = np.zeros((num_x, num_y), np.int8)
+		for y in range(num_y):
+			line = lines[i + y]
+			for x in range(num_x):
+				ch = line[x]
+				grid[x,y] = 1 if ch == '#' else 0
+		if grid[0,0]:
+			keys.append(grid)
+		else:
+			locks.append(grid)
+		i += num_y
+		while len(lines[i]) == 0:
+			i += 1
+
+	return (locks, keys)
 
 # Possible moves and costs: (fwd,1),(left,1000),(right,1000)
 def moves(state, grid):
