@@ -4,6 +4,7 @@
 
 using namespace std;
 
+#include <cstdint>
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -11,22 +12,25 @@ using namespace std;
 #include <map>
 #include <set>
 
+// Long number for the counts.
+typedef unsigned long long number;
+
 const string WHITESPACE = " \n\r\t\f\v";
 
 static int bound_available_index = 0;
-static std::map<int, std::set<string>> available_index;
+static std::map<int, std::map<string, number>> available_index;
 static std::set<string> impossibles;
 
-bool is_in_index(int ns, const string& s) {
-    return available_index.contains(ns) && available_index[ns].contains(s);
+number is_in_index(int ns, const string& s) {
+    return (available_index.contains(ns) ? available_index[ns][s] : 0);
 }
 
-void add_to_index(const string& s) {
+void add_to_index(const string& s, number count) {
     int ns = s.size();
     if (ns > bound_available_index) {
         bound_available_index = ns;
     }
-    available_index[ns].insert(s);
+    available_index[ns][s] += count;
 }
 
 void clear_indices() {
@@ -79,7 +83,7 @@ set<string> process_available(const string& line) {
     set<string> result;
     for (auto r : splits) {
         string s = trim(r);
-        add_to_index(s);
+        add_to_index(s, 1);
         result.insert(s);
     }
     return result;
@@ -115,10 +119,10 @@ bool can_make_from_available(const string& prev_token, const string& required) {
     for (int na = nr; na > 0; na--) {
         string s = required.substr(0, na);
         if (!impossibles.contains(s) && is_in_index(na, s)) {
-            add_to_index(prev_token + s);
+            add_to_index(prev_token + s, 1);
             string r = required.substr(na);
             if (can_make_from_available(s, r)) {
-                add_to_index(r);
+                add_to_index(r, 1);
                 return true;
             }
         }
@@ -127,23 +131,42 @@ bool can_make_from_available(const string& prev_token, const string& required) {
     return false;
 }
 
-int count_ways_to_make_from_available(const string& required, const set<string>& available) {
-    int count = 0;
+// Need to clear indices and repopulate with available strings before calling this for each of the required patterns.
+number count_ways_to_make_from_available(const string& required) {
     int nr = required.size();
     if (nr == 0) {
         return 1;
     }
+    number n = is_in_index(nr, required);
+    if (n > 0) {
+        return n;
+    }
     if (impossibles.contains(required)) {
         return 0;
     }
-    for (auto a : available) {
-        if (required.starts_with(a)) {
-            int na = a.size();
-            int sc = count_ways_to_make_from_available(required.substr(na), available);
-            count += sc;
+    if (nr > bound_available_index) {
+        nr = bound_available_index;
+    }
+    number total_count = 0;
+    for (int na = nr; na > 0; na--) {
+        string s = required.substr(0, na);
+        if (!impossibles.contains(s)) {
+            number cs = is_in_index(na, s);
+            if (cs > 0) {
+                //   add_to_index(prev_token + s, 1);
+                string r = required.substr(na);
+                number cr = count_ways_to_make_from_available(r);
+                total_count += (cs * cr);
+            }
         }
     }
-    return count;
+    if (total_count > 0) {
+        add_to_index(required, total_count);
+    }
+    else {
+        impossibles.insert(required);
+    }
+    return total_count;
 }
 
 int main()
@@ -155,7 +178,7 @@ int main()
     set<string> available = process_available(lines[0]);
     vector<string> required = process_required(lines);
 
-    int count = 0, successes = 0;
+    number count = 0, successes = 0;
     for (auto req : required) {
         count++;
         cout << "Required: " << req;
@@ -171,15 +194,29 @@ int main()
     cout << "Summary: " << successes << " out of " << count << " designs are possible." << endl;
 
     cout << "Part 2." << endl;
-    int total = 0;
-    for (auto r : required) {
-        cout << "Required: " << r << " = ";
-        count = count_ways_to_make_from_available(r, available);
-        total += count;
-        cout << count << " ways." << endl;
-    }
+    number total = 0;
+    process_available(lines[0]);
 
-    cout << "Total number of ways to make designs = " << total << endl;
+    ofstream out_counts;
+    out_counts.open("counts.csv");
+    for (auto r : required) {
+//        cout << "Required: " << r << " = ";
+        count = count_ways_to_make_from_available(r);
+        total += count;
+        out_counts << count << endl;
+//        cout << count << endl;
+//        cout << count << " ways." << endl;
+    }
+    out_counts.close();
+
+    cout << "Total number of ways to make designs = " << total << endl;     
+    // NOT 63.
+    // NOT 488062108 (too low).
+    // NOT 6,223,895,674,012 (too low).
+    // NOT 6,758,341,981,715,612
+    // NOT 5,371,816,338,089,690
+
+
     cout << "Done." << endl;
     return 0;
 }
