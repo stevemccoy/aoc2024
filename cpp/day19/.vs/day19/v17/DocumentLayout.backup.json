@@ -5,6 +5,9 @@
     {
       "AbsoluteMoniker": "D:0:0:{E4A0AB5C-2653-4CD0-883E-B36313EB1B0E}|day19.vcxproj|C:\\Users\\Stephen.McCoy\\github\\aoc2024\\cpp\\day19\\day19.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
       "RelativeMoniker": "D:0:0:{E4A0AB5C-2653-4CD0-883E-B36313EB1B0E}|day19.vcxproj|solutionrelative:day19.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\steve\\github\\aoc2024\\cpp\\day22\\day22.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     }
   ],
   "DocumentGroupContainers": [
@@ -14,8 +17,20 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 0,
+          "SelectedChildIndex": 1,
           "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "day22.cpp",
+              "DocumentMoniker": "C:\\Users\\steve\\github\\aoc2024\\cpp\\day22\\day22.cpp",
+              "RelativeDocumentMoniker": "..\\..\\..\\..\\..\\steve\\github\\aoc2024\\cpp\\day22\\day22.cpp",
+              "ToolTip": "C:\\Users\\steve\\github\\aoc2024\\cpp\\day22\\day22.cpp",
+              "RelativeToolTip": "..\\..\\..\\..\\..\\steve\\github\\aoc2024\\cpp\\day22\\day22.cpp",
+              "ViewState": "AQIAAAAAAAAAAAAAAAAAABEAAAAAAAAA",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
+              "WhenOpened": "2025-02-23T12:16:53.106Z"
+            },
             {
               "$type": "Document",
               "DocumentIndex": 0,
@@ -24,7 +39,7 @@
               "RelativeDocumentMoniker": "day19.cpp",
               "ToolTip": "C:\\Users\\Stephen.McCoy\\github\\aoc2024\\cpp\\day19\\day19.cpp",
               "RelativeToolTip": "day19.cpp",
-              "ViewState": "AgIAAHMAAAAAAAAAAAAiwJIAAAABAAAAAAAAAA==",
+              "ViewState": "AgIAAOQAAAAAAAAAAAAAAOsAAAAiAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
               "WhenOpened": "2025-02-21T07:49:23.396Z",
               "EditorCaption": ""
