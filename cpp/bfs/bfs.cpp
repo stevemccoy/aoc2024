@@ -10,21 +10,8 @@
 #include <set>
 #include <algorithm>
 
-#include "Graph.h"
-#include "Path.h"
 #include "SearchDefinition.h"
-
-static bool is_goal(NodePtr n, Identifier id) {
-    return n->id() == id;
-}
-
-static std::map<NodePtr, Cost> get_neighbours(Graph& g, NodePtr from) {
-
-}
-
-static Identifier ident_from_location(size_t x, size_t y, size_t num_x) {
-    return (y * num_x + x);
-}
+#include "Path.h"
 
 // Path comparator for open list (using lambda).
 struct PathCompare
@@ -38,7 +25,8 @@ struct PathCompare
 static void breadth_first_search(
     GraphPtr& gp, 
     Identifier startId, 
-    Identifier goalId,
+    const std::set<Identifier>& goalIds,
+    Cost maximumAllowablePathCost,
     std::vector<PathPtr>& pathList) 
 {
     // Define:
@@ -49,12 +37,15 @@ static void breadth_first_search(
     // Maintain: 
         // Path lists in process
         // Open list of paths to be extended.
+        // Closed list of paths already extended.
 
     // Resulting list of completed paths.
     pathList.clear();
     
     // Open queue must be ordered to provide node in order of smallest cost first.
     std::multiset<PathPtr, PathCompare> open_paths;
+    // Closed nodes.
+    std::set<Identifier> closed_nodes;
     // Set up start and goal nodes.
     NodePtr startNode = gp->lookup_node(startId);
     PathPtr path(new Path(startNode, 0));
@@ -72,7 +63,7 @@ static void breadth_first_search(
 
         NodePtr en = path->end();
         Cost pc = path->cost();
-        if (is_goal(en, goalId)) {
+        if (goalIds.find(en->id()) != goalIds.end()) {
             if (shortestPathCost == 0) {
                 shortestPathCost = pc;
             }
@@ -81,17 +72,27 @@ static void breadth_first_search(
             }
             goalFound = true;
             pathList.push_back(path);
+            // Don't expand neighbours if this is a shortest solution path.
+            continue;
         }
 
         // Expand non-visited neighbours.
         if (gp->from_source(en->id(), neighbour_edges)) {
             for (auto& ei : neighbour_edges) {
-                if (!path->visits_node(ei->dest()->id())) {
-                    PathPtr p2(new Path(path, ei->dest(), ei->cost()));
-                    open_paths.insert(p2);
+                Identifier nid = ei->dest()->id();
+                if (closed_nodes.find(nid) == closed_nodes.end()) {
+                    if (ei->cost() + pc < maximumAllowablePathCost) {
+                        if (!path->visits_node(nid)) {
+                            PathPtr p2(new Path(path, ei->dest(), ei->cost()));
+                            open_paths.insert(p2);
+                        }
+                    }
                 }
             }
         }
+
+        // Mark this node as visited now.
+        closed_nodes.insert(en->id());
     }
 }
 
@@ -107,6 +108,10 @@ static std::vector<std::string> read_input_file(const char* file_name) {
 }
 
 static bool setup_search(const std::vector<std::string>& lines, SearchDefinition& searchDef) {
+
+    const char headings[4] = { 'n', 'e', 's', 'w' };
+    const Cost rotation_cost = 1000;
+    const Cost move_cost = 1;
 
     size_t num_y = lines.size();
     size_t num_x = lines[0].size();
@@ -124,55 +129,113 @@ static bool setup_search(const std::vector<std::string>& lines, SearchDefinition
         for (auto x = 0; x < num_x; x++) {
             char ch = line[x];
             if ((ch == '.')||(ch == 'S')||(ch == 'E')) {
-                // New node for this location.
-                Identifier id = gp->getNewNodeId();
-                NodePtr n = gp->add_node(id);
-                NodeMetaData nmd = { id, x, y, '*' };
-                searchDef.setNodeMetaData(id, nmd);
-                // Start and finish points in search.
-                if (ch == 'S') {
-                    searchDef.startId = id;
-                }
-                if (ch == 'E') {
-                    searchDef.goalId = id;
-                }
-                // Add edges if valid.
-                if (prevNode) {
-                    gp->add_edge(prevNode->id(), 1, id);
-                }
-                Identifier lastRowNodeId = searchDef.lookupIdByContents(x, y - 1);
-                if (lastRowNodeId) {
-                    NodePtr lastRowNode = gp->lookup_node(lastRowNodeId);
-                    if (lastRowNode != nullptr) {
-                        gp->add_edge(lastRowNodeId, 1, id);
+                // Nodes for each of the possible heading directions.
+                NodePtr tempNodes[4];
+                for (int hi = 0; hi < 4; hi++) {
+                    char h = headings[hi];
+
+                    // New node for this location and heading.
+                    Identifier id = gp->getNewNodeId();
+                    NodePtr n = gp->add_node(id);
+                    NodeMetaData nmd = { id, x, y, h };
+                    searchDef.setNodeMetaData(id, nmd);
+
+                    // Start and finish points in search.
+                    if ((ch == 'S') && (h == 'e')) {
+                        searchDef.startId = id;
                     }
+                    if (ch == 'E') {
+                        searchDef.goalIds.insert(id);
+                    }
+                    tempNodes[hi] = n;
                 }
-                // Remember node for next one along.
-                prevNode = n;
-            }
-            else {
-                // Forget previous node for edges if this one not visitable.
-                prevNode = nullptr;
+                // Add edges for rotations.
+                for (int hi = 0; hi < 4; hi++) {
+                    Identifier s = tempNodes[hi]->id();
+                    Identifier d = tempNodes[(hi + 1) % 4]->id();
+                    gp->add_edge(s, rotation_cost, d);
+                    gp->add_edge(d, rotation_cost, s);
+                }
             }
         }
     }
+    // Now add edges for all the legal moves between different locations.
+    for (auto& p : gp->nodes) {
+        Identifier sid = p.first;
+        NodeMetaData nmds = searchDef.lookupNodeById(sid);
+        Identifier did = 0;
+        switch (nmds.hdg) {
+        case 'n':
+            did = searchDef.lookupIdByContents(nmds.x, nmds.y - 1, 'n');
+            break;
+        case 'e':
+            did = searchDef.lookupIdByContents(nmds.x + 1, nmds.y, 'e');
+            break;
+        case 's':
+            did = searchDef.lookupIdByContents(nmds.x, nmds.y + 1, 's');
+            break;
+        case 'w':
+            did = searchDef.lookupIdByContents(nmds.x - 1, nmds.y, 'w');
+            break;
+        }
+        if (did) {
+            gp->add_edge(sid, move_cost, did);
+        }
+    }
+    // Done.
     searchDef.graph = gp;
+    return true;
+}
+
+static std::set<Identifier> nodes_visited(const PathPtr& path) {
+    std::set<Identifier> result;
+    PathPtr p = path;
+    while (p != nullptr) {
+        result.insert(p->end()->id());
+        p = p->path();
+    }
+    return result;
+}
+
+static std::set<Identifier> nodes_visited(const std::vector<PathPtr>& paths) {
+    std::set<Identifier> result;
+    for (auto& p : paths) {
+        auto nvl = nodes_visited(p);
+        result.insert(nvl.begin(), nvl.end());
+    }
+    return result;
+}
+
+static bool solve_for(const char* fileName) {
+
+    std::cout << "Part 1." << std::endl;
+    std::vector<std::string> lines = read_input_file(fileName);
+    SearchDefinition searchDef;
+    if (!setup_search(lines, searchDef)) {
+        std::cerr << "Failed to set up search from input file " << fileName << std::endl;
+        return false;
+    }
+
+    std::vector<PathPtr> pathList;
+    breadth_first_search(searchDef.graph, searchDef.startId, searchDef.goalIds, 100000L, pathList);
+    std::cout << "Lowest score for reindeer path = " << pathList[0]->cost() << std::endl;
+
+    std::cout << "Part 2." << std::endl;
+    std::set<Identifier> ids = nodes_visited(pathList);
+    std::set<int> locs;
+    for (auto& id : ids) {
+        auto ndm = searchDef.lookupNodeById(id);
+        int v = ndm.y * searchDef.num_x + ndm.x;
+        locs.insert(v);
+    }
+
+    std::cout << "Number of distinct locations visited = " << locs.size() << std::endl;
     return true;
 }
 
 int main()
 {
-    std::cout << "Hello World!\n";
     std::cout << "Advent of Code 2024, Day 16 - Reindeer Maze" << std::endl;
-
-    std::vector<std::string> lines = read_input_file("test16a.txt");
-    SearchDefinition searchDef;
-    if (!setup_search(lines, searchDef)) {
-        std::cerr << "Failed to set up search from input file." << std::endl;
-        return 1;
-    }
-
-    std::vector<PathPtr> pathList;
-    breadth_first_search(searchDef.graph, searchDef.startId, searchDef.goalId, pathList);
-
+    //solve_for("test16b.txt");
+    solve_for("input16.txt");
 }

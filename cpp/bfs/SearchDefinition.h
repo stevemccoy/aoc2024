@@ -1,8 +1,10 @@
 #pragma once
 #include <map>
+#include <set>
 #include "common.h"
 #include "Graph.h"
 
+// Problem specific metadata for each node in the search.
 struct NodeMetaData
 {
 	Identifier id;
@@ -13,6 +15,9 @@ struct NodeMetaData
 class SearchDefinition
 {
 public:
+	SearchDefinition() : startId(0), num_x(0), num_y(0) {}
+	virtual ~SearchDefinition() {}
+
 	NodeMetaData& lookupNodeById(Identifier id) {
 		return m_nodeMeta[id];
 	}
@@ -37,8 +42,8 @@ public:
 	// Start node.
 	Identifier startId;
 
-	// Goal node.
-	Identifier goalId;
+	// Goal nodes.
+	std::set<Identifier> goalIds;
 
 	// Coordinate limits for nodes in search.
 	size_t num_x, num_y;

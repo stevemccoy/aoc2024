@@ -1,7 +1,6 @@
 #pragma once
 #include <vector>
 #include <map>
-
 #include "Node.h"
 
 class Edge
@@ -43,11 +42,12 @@ public:
 	size_t from_source(Identifier n, std::vector<EdgePtr>& result);
 	size_t to_dest(Identifier n, std::vector<EdgePtr>& result);
 
+	std::map<Identifier, NodePtr> nodes;
+
 private:
 	// Used by getNewNodeId() above.
 	static Identifier nextNodeId;
 
-	std::map<Identifier, NodePtr> nodes;
 	std::vector<EdgePtr> edges;
 	std::multimap<Identifier, EdgePtr> fwd_index;
 	std::multimap<Identifier, EdgePtr> bwd_index;
