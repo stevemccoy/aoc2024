@@ -2,7 +2,7 @@
 # Advent of Code 2024, Day 21 - Keypad Conundrum
 #
 
-import numpy as np
+import itertools
 
 # Files.
 test_file = 'test21.txt'
@@ -18,18 +18,44 @@ num_keypad = {'7':(0,0),'8':(1,0),'9':(2,0),
 # Lookup for what to do to get from one numeric key to another, by using directional keypad.
 num_keypad_transits = []
 
+# Global variables
+
+# Lookup from directional keypad output code to possible input plans to generate the output: code -> plan*
+plan_lookup = {}
+
+# Two level lookup from output code to best possible input 2 levels up.
+# code -> plan
+plan_lookup2 = {}
+
+# Implementation of OPEN during the search - map each robot level to a number of plans completed to that level,
+# each associated with the number of keys at that level:  [level -> (key_count,plan)*]*
+open_list = {}
+
+# Record of the shortest number of keys achieved for each robot level: level -> min_key_count
+best_keycount = {}
+
+def clear_global_plans():
+	global plan_lookup, plan_lookup2, open_list, best_keycount
+	plan_lookup = {}
+	plan_lookup2 = {}
+	open_list = {}
+	best_keycount = {}
+
 # Directional keyboard sequences.
 dir_keypad_transits = [
-	('^', 'A', '>'), ('^', '<', 'v<'), ('^', 'v', 'v'), ('^', '>', 'v>'), # ('^', '>', '>v'),
-	('A', '^', '<'), ('A', '<', 'v<<'), # ('A', '<', '<v<'), 
-	('A', 'v', 'v<'), # ('A', 'v', '<v'), 
+	('^', 'A', '>'), ('^', '<', 'v<'), ('^', 'v', 'v'), 
+	('^', '>', 'v>'), ('^', '>', '>v'),
+	('A', '^', '<'), 
+	('A', '<', 'v<<'), ('A', '<', '<v<'),
+	('A', 'v', 'v<'), ('A', 'v', '<v'), 
 	('A', '>', 'v'),
-	('<', 'A', '>>^'), # ('<', 'A', '>^>'), 
+	('<', 'A', '>>^'), ('<', 'A', '>^>'), 
 	('<', '^', '>^'), ('<', 'v', '>'), ('<', '>', '>>'),
-	('v', 'A', '>^'), # ('v', 'A', '^>'), 
+	('v', 'A', '>^'), ('v', 'A', '^>'), 
 	('v', '^', '^'), ('v', '<', '<'), ('v', '>', '>'),
-	('>', 'A', '^'), # ('>', '^', '^<'), 
-	('>', '^', '<^'), ('>', '<', '<<'), ('>', 'v', '<')
+	('>', 'A', '^'), 
+	('>', '^', '^<'), ('>', '^', '<^'), 
+	('>', '<', '<<'), ('>', 'v', '<')
 ]
 
 # Read the contents of the given file.
@@ -37,6 +63,10 @@ def read_input(file_name):
 	with open(file_name, 'r') as f:
 		return [line.strip() for line in f if len(line) > 0]
 	return False
+
+def permute_keystring(s1):
+	perms = list(itertools.permutations(s1))
+	return list(set([''.join(p) for p in perms]))
 
 def compile_num_keypad_transits():
 	global num_keypad
@@ -55,171 +85,72 @@ def compile_num_keypad_transits():
 			if k1 == k2:
 				continue
 			(x2,y2) = num_keypad[k2]
-			(x,y) = (x1,y1)
 			kl = []
-			# Avoid the blank space.
-			if y == ay and x2 == ax:
-				while y != y2:
-					y -= 1
-					kl.append('^')
-			elif x == ax and y2 == ay:
-				while x != x2:
-					x += 1
-					kl.append('>')
-			# Which way to go first now?
-			opx = ('>' if x < x2 else '<' if x > x2 else '')
-			opy = ('^' if y > y2 else 'v' if y < y2 else '')
-			if opx != '' and opy != '':
-				if opx == '<':
-					# '<' should go first if needed.
-					while x != x2:
-						x -= 1
-						kl.append('<')
-				else:
-					# Otherwise, do '^' or 'v' before '>' (to finish on '>' button)
-					while y != y2:
-						y += (1 if y < y2 else -1)
-						kl.append(opy)
 
-			# Correct remaining y error, then x now...
-			while y != y2:
-				dy = 1 if y < y2 else -1
-				y += dy
-				kl.append('^' if dy < 0 else 'v')
+			opx = ('>' if x1 < x2 else '<' if x1 > x2 else '')
+			opy = ('^' if y1 > y2 else 'v' if y1 < y2 else '')
 
-			while x != x2:
-				dx = 1 if x < x2 else -1
-				x += dx
-				kl.append('<' if dx < 0 else '>')
+			kstring = opx * abs(x2 - x1) + opy * abs(y2 - y1)
+			ks_options = permute_keystring(kstring)
 
-			ks = ''.join(kl)
-			result.append((k1, k2, ks))
+			kl = []
+			for ks in ks_options:
+				(x,y) = (x1,y1)
+				ok = True
+				for k in ks:
+					y += 1 if k == 'v' else -1 if k == '^' else 0
+					x += 1 if k == '>' else -1 if k == '<' else 0
+					if x == ax and y == ay:
+						ok = False
+						break
+				if ok:
+					kl.append(ks)
+
+			result.append((k1, k2, kl))
 			
 	num_keypad_transits = result
 
 def lookup_num_transit(from_key, to_key):
 	global num_keypad_transits
-	for (f1, t1, ks) in num_keypad_transits:
+	for (f1, t1, kl) in num_keypad_transits:
 		if f1 == from_key and t1 == to_key:
-			return ks
+			for ks in kl:
+				yield ks
 	return None
 
 def lookup_dir_transit(from_key, to_key):
 	global dir_keypad_transits
 	for (f1, t1, ks) in dir_keypad_transits:
 		if f1 == from_key and t1 == to_key:
-			return ks
+			yield ks
 	return None
 
 # directional keystrokes needed to produce required door code.
 # Assume initially at 'A' key.
 def robot1(code):
 	pos = 'A'
-	seq = []
+	options = []
 	for dest in code:
-		if pos != dest:
-			s = lookup_num_transit(pos, dest)
-			seq.append(s)
-		seq.append('A')
-		pos = dest
-	return seq
+		seq = ['A'] if pos == dest else [ks + 'A' for ks in lookup_num_transit(pos, dest)]
+		options.append(seq)
+		pos = dest	
+	for keystring in itertools.product(*options):
+		yield ''.join(keystring)
 
-def robot2(code):
-	# Sequence to control robot 1.
-	r1sequence = robot1(code)
-	r1string = ''.join(r1sequence)
-	# Robot 2 sequence.
-	pos = 'A' 
-	seq = []
-	for dest in r1string:
-		if pos != dest:
-			s = lookup_dir_transit(pos, dest)
-			seq.append(s)
-		seq.append('A')
-		pos = dest
-	return seq
-
-def robot3(code):
-	# Sequence to control robot 2.
-	r2sequence = robot2(code)
-	r2string = ''.join(r2sequence)
-	# Robot 3 sequence.
-	pos = 'A'
-	seq = []
-	for dest in r2string:
-		if pos != dest:
-			s = lookup_dir_transit(pos, dest)
-			seq.append(s)
-		seq.append('A')
-		pos = dest
-	return seq
-
-# Directional keypad input string to make a robot perform
-# the string of operations given in output string.
-def robot_control_string(output):
-	pos = 'A'
-	seq = []
-	for dest in output:
-		if pos != dest:
-			s = lookup_dir_transit(pos, dest)
-			seq.append(s)
-		seq.append('A')
-		pos = dest
-	return ''.join(seq)
-
-def plan_keys(plan):
-	return sum([plan[k] * len(k) for k in plan])
-
-def robotN(code, n_robots):
-	# Numeric keypad actions.
-	r1sequence = robot1(code)
-	actions = ''.join(r1sequence)
-	print(f"Final robot input is {len(actions)} chars.\n'{actions}'")
-	recipes = {'A':'A'}
-
-	# Create plan for these actions.
-	blocks = [step + 'A' for step in actions[:-1].split('A')]
-	plan1 = {}
-	plan2 = {}
-
-	for b in blocks:
-		if b in plan1:
-			plan1[b] += 1
-		else:
-			plan1[b] = 1
-
-	for ri in range(n_robots):
-		# Break out parts of plan so far.
-		for a in plan2:
-			acount = plan2[a]
-			for br in a[:-1].split('A'):
-				bf = br + 'A'
-				if bf in plan1:
-					plan1[bf] += acount
-				else:
-					plan1[bf] = acount
-
-		plan2 = {}
-		for b1 in plan1:
-			if b1 in recipes:
-				b2 = recipes[b1]
-			else:
-				b2 = robot_control_string(b1)
-				recipes[b1] = b2
-
-			if b2 in plan2:
-				plan2[b2] += plan1[b1]
-			else:
-				plan2[b2] = plan1[b1]
-		
-		plan1 = {}
-
-	return plan2
-
-def control_string(code):
-	seq = robot3(code)
-	sls = ''.join(seq)
-	return sls
+def robot_stack(code, n_robots):
+	if n_robots == 0:
+		for keys in robot1(code):
+			yield keys
+	else:
+		for req_string in robot_stack(code, n_robots - 1):
+			pos = 'A'
+			options = []
+			for dest in req_string:
+				seq = ['A'] if pos == dest else [ks + 'A' for ks in lookup_dir_transit(pos, dest)]
+				options.append(seq)
+				pos = dest
+			for keystring in itertools.product(*options):
+				yield ''.join(keystring)
 
 def complexity(code, control_string):
 	numpart = int(code[:-1])
@@ -232,11 +163,173 @@ def part1_for(file_name):
 	score = 0
 	for line in lines:
 		code = line.strip()
-		c_string = control_string(code)
-		c_score = complexity(code, c_string)
-		print(f'Code {code} has complexity {c_score} for {len(c_string)} buttons {c_string}')
+		mrs = ''
+		mrl = None
+		for rs in robot_stack(code, 2):
+			if mrl is None or len(rs) < mrl:
+				mrl = len(rs)
+				mrs = rs
+		c_score = complexity(code, mrs)
+		# print(f'Code {code} has complexity {c_score} for {len(mrs)} buttons {mrs}')
 		score += c_score
 	return score
+
+# PART 2 CODE.
+
+# Remove shortest partial plan from the OPEN list at a given level.
+def pop_open_plan(level):
+	global open_list
+	if level in open_list and len(open_list[level]) > 0:
+		p = open_list[level][0]
+		del open_list[level][0]
+		return p
+	else:
+		return None
+
+# Add given plan with associated key count at the given level, to the OPEN list.
+def push_open_plan(level, keycount, plan):
+	global open_list
+	if level in open_list:
+		done = False
+		for i in range(len(open_list[level])):
+			if open_list[level][i][0] > keycount:
+				open_list[level].insert(i, (keycount,plan))
+				done = True
+				break
+		if not done:
+			open_list[level].append((keycount,plan))
+	else:
+		open_list[level] = [(keycount,plan)]
+
+# Plan of input keycodes needed to produce given output code for the numerical keypad.
+def robot1_plan(code):
+	pos = 'A'
+	options = []
+	for dest in code:
+		seq = ['A'] if pos == dest else [ks + 'A' for ks in lookup_num_transit(pos, dest)]
+		options.append(seq)
+		pos = dest	
+	for keystring in itertools.product(*options):
+		plan = {}
+		for step in keystring:
+			if step in plan:
+				plan[step] += 1
+			else:
+				plan[step] = 1
+		yield plan
+
+def robotN_plan(code, n_robots):
+	if n_robots == 0:
+		yield from robot1_plan(code)
+		# for plan in robot1_plan(code):
+		# 	yield plan
+	else:
+		for out_plan in robotN_plan(code, n_robots - 1):
+			for step,count in out_plan.items():
+				pos = 'A'
+				options = []
+				for dest in step:
+					seq = ['A'] if pos == dest else [ks + 'A' for ks in lookup_dir_transit(pos, dest)]
+					options.append(seq)
+					pos = dest
+				for keystring in itertools.product(*options):
+					plan = {}
+					for substep in keystring:
+						if substep in plan:
+							plan[substep] += count
+						else:
+							plan[substep] = count
+					yield plan
+
+# From a single output code to multiple input plans for one robot layer.
+def rn_plans_from_output_code(output):
+	global plan_lookup
+
+	if output in plan_lookup:
+		return plan_lookup[output]
+	plans = []
+	pos = 'A'
+	options = []
+	for dest in output:
+		seq = ['A'] if pos == dest else [ks + 'A' for ks in lookup_dir_transit(pos, dest)]
+		options.append(seq)
+		pos = dest
+	for keystring in itertools.product(*options):
+		plan = {}
+		for substep in keystring:
+			if substep in plan:
+				plan[substep] += 1
+			else:
+				plan[substep] = 1
+		plans.append(plan)
+	plan_lookup[output] = plans
+	return plans
+
+
+def multiply_plans(plans, count):
+	result = []
+	if count != 0:
+		for p1 in plans:
+			p2 = {i:(c * count) for i,c in p1.items() if c != 0}
+			result.append(p2)
+	return result
+
+# Take multiple plans, each one for achieving a part of an output plan,
+# and merge their steps together into a single plan.
+def merge_plan_stages(stages):
+	plan = {}
+	for stage in stages:
+		for step,count in stage.items():
+			if step in plan:
+				plan[step] += count
+			else:
+				plan[step] = count
+	return plan
+
+# From output plan to input plans.
+def rn_plans_from_output_plan(out_plan):
+	plans = []
+	options = []
+	for step,count in out_plan.items():
+		step_plans = rn_plans_from_output_code(step)
+		options.append(multiply_plans(step_plans, count))
+	for plan_seq in itertools.product(*options):
+		plan = merge_plan_stages(plan_seq)
+		plans.append(plan)
+	return plans
+
+# Find the best input plan for given output code, given 2 level look-ahead.
+def best_two_level_plan_for_code(code):
+	global plan_lookup2
+
+	if code in plan_lookup2:
+		plan = plan_lookup2[code]
+		keys = plan_keycount(plan)
+		return keys,plan
+
+	best_plan1 = None
+	best_keys1 = None
+	for plan1 in rn_plans_from_output_code(code):
+
+		plans = rn_plans_from_output_plan(plan1)
+		if len(plans) == 0:
+			continue
+		
+		best_keys2 = plan_keycount(plans[0])
+		best_plan2 = plans[0]
+		for p in plans[1:]:
+			kc = plan_keycount(p)
+			if kc < best_keys2:
+				best_keys2 = kc
+				best_plan2 = p
+		
+		if best_keys1 is None or best_keys2 < best_keys1:
+			best_keys1 = best_keys2
+			best_plan1 = plan1
+	
+	plan_lookup2[code] = best_plan1
+	return best_keys1,best_plan1
+
 
 def plan_complexity(code, plan):
 	numpart = int(code[:-1])
@@ -245,36 +338,88 @@ def plan_complexity(code, plan):
 		nc += plan[b] * len(b)
 	return nc * numpart
 
-def part2_for(file_name):
+def plan_keycount(plan):
+	score = 0
+	for step,count in plan.items():
+		score += len(step) * count
+	return score
+
+def expand(frontier_level):
+	global open_list
+	global best_keycount
+
+	# Repeat:
+	# Decide what plan at what level to expand.
+	# Expand plan at level l1, storing results at level l2 = l1 + 1.
+	# Update min_key_counts if appropriate. Report if changes.
+	# Loop
+
+	dcount = 1
+	while dcount > 0:
+		dcount = 0
+		for l1 in range(frontier_level - 1, 0, -1):
+			pair = pop_open_plan(l1)
+			if pair:
+				kc1,plan1 = pair
+				l2 = l1 + 1
+				if l2 == frontier_level:
+					for p in rn_plans_from_output_plan(plan1):
+						kc2 = plan_keycount(p)
+						if l2 not in best_keycount or best_keycount[l2] > kc2:
+							best_keycount[l2] = kc2
+							push_open_plan(l2, kc2, p)
+						dcount += 1
+				else:
+					for p in rn_plans_from_output_plan(plan1):
+						kc2 = plan_keycount(p)
+						if l2 not in best_keycount or best_keycount[l2] > kc2:
+							best_keycount[l2] = kc2
+						push_open_plan(l2, kc2, p)
+						dcount += 1
+				break
+	pass
+
+def setup_first_robot_input_plans_all_codes(lines):
+	# Tackle all output codes at once.
+	code = ''.join(lines)
+	# Initialise outputs required from level 1, and associated partial plans at level 1.
+	for p1 in robot1_plan(code):
+		kc1 = plan_keycount(p1)
+		push_open_plan(1, kc1, p1)
+
+def part2_for(file_name, num_robot_levels):
+	clear_global_plans()
 	lines = read_input(file_name)
 	compile_num_keypad_transits()
 	score = 0
-	for line in lines:
-		code = line.strip()
-		plan = robotN(code, 25)
-		c_score = plan_complexity(code, plan)
-		print(f'Code {code} has complexity {c_score}')
-		score += c_score
+	setup_first_robot_input_plans_all_codes(lines)
+
+	kc1,plan1 = pop_open_plan(1)
+	for code,count in plan1.items():
+		plan = best_two_level_plan_for_code(code)
+
+
+	expand(num_robot_levels)
 	return score
 
 # 159907381897160 too low (24 rbt)
 # 314444784819888 too high (25 rbt)
 # 410660523597582 too high (25 rbt)
 
-
 # Main processing.
-print('Advent of Code 2024 - Day 21, Part 1.')
-print('Running test...')
-count = part1_for(test_file)
-print(f"Result is {count}")
+# print('Advent of Code 2024 - Day 21, Part 1.')
+# print('Running test...')
+# count = part1_for(test_file)
+# print(f"Result is {count}")
 
-print('Running full input...')
-count = part1_for(input_file)
-print(f"Result is {count}")
+# print('Running full input...')
+# count = part1_for(input_file)
+# print(f"Result is {count}")
 
 print('Part 2.')
 print('Running full input...')
-count = part2_for(input_file)
+# count = part2_for(input_file)
+count = part2_for(test_file, 3)
 print(f"Result is {count}")
 
 print("Done")
