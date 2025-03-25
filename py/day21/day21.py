@@ -34,27 +34,30 @@ open_list = {}
 # Record of the shortest number of keys achieved for each robot level: level -> min_key_count
 best_keycount = {}
 
+keycount_cache = {}
+
 def clear_global_plans():
-	global plan_lookup, plan_lookup2, open_list, best_keycount
+	global plan_lookup, plan_lookup2, open_list, best_keycount, keycount_cache
 	plan_lookup = {}
 	plan_lookup2 = {}
 	open_list = {}
 	best_keycount = {}
+	keycount_cache = {}
 
 # Directional keyboard sequences.
 dir_keypad_transits = [
 	('^', 'A', '>'), ('^', '<', 'v<'), ('^', 'v', 'v'), 
-	('^', '>', 'v>'), ('^', '>', '>v'),
+	('^', '>', 'v>'), # ('^', '>', '>v'),
 	('A', '^', '<'), 
-	('A', '<', 'v<<'), ('A', '<', '<v<'),
-	('A', 'v', 'v<'), ('A', 'v', '<v'), 
+	('A', '<', 'v<<'), # ('A', '<', '<v<'),
+	('A', 'v', '<v'), # ('A', 'v', 'v<'), 
 	('A', '>', 'v'),
-	('<', 'A', '>>^'), ('<', 'A', '>^>'), 
+	('<', 'A', '>>^'), # ('<', 'A', '>^>'), 
 	('<', '^', '>^'), ('<', 'v', '>'), ('<', '>', '>>'),
-	('v', 'A', '>^'), ('v', 'A', '^>'), 
+	('v', 'A', '^>'), # ('v', 'A', '>^'), # 
 	('v', '^', '^'), ('v', '<', '<'), ('v', '>', '>'),
 	('>', 'A', '^'), 
-	('>', '^', '^<'), ('>', '^', '<^'), 
+	('>', '^', '<^'), # ('>', '^', '^<'), 
 	('>', '<', '<<'), ('>', 'v', '<')
 ]
 
@@ -298,6 +301,16 @@ def rn_plans_from_output_plan(out_plan):
 		plans.append(plan)
 	return plans
 
+def rn_best_plan_from_output_plan(out_plan):
+	plan = {}
+	step_plans = []
+	for step,count in out_plan.items():
+		kc,step_plan = best_two_level_plan_for_code(step)
+		p = multiply_plans([step_plan], count)
+		step_plans.append(p[0])
+	plan = merge_plan_stages(step_plans)
+	return plan
+
 # Find the best input plan for given output code, given 2 level look-ahead.
 def best_two_level_plan_for_code(code):
 	global plan_lookup2
@@ -363,21 +376,20 @@ def expand(frontier_level):
 				kc1,plan1 = pair
 				l2 = l1 + 1
 				if l2 == frontier_level:
-					for p in rn_plans_from_output_plan(plan1):
-						kc2 = plan_keycount(p)
-						if l2 not in best_keycount or best_keycount[l2] > kc2:
-							best_keycount[l2] = kc2
-							push_open_plan(l2, kc2, p)
-						dcount += 1
-				else:
-					for p in rn_plans_from_output_plan(plan1):
-						kc2 = plan_keycount(p)
-						if l2 not in best_keycount or best_keycount[l2] > kc2:
-							best_keycount[l2] = kc2
+					p = rn_best_plan_from_output_plan(plan1)
+					kc2 = plan_keycount(p)
+					if l2 not in best_keycount or best_keycount[l2] > kc2:
+						best_keycount[l2] = kc2
 						push_open_plan(l2, kc2, p)
-						dcount += 1
+					dcount += 1
+				else:
+					p = rn_best_plan_from_output_plan(plan1)
+					kc2 = plan_keycount(p)
+					if l2 not in best_keycount or best_keycount[l2] > kc2:
+						best_keycount[l2] = kc2
+					push_open_plan(l2, kc2, p)
+					dcount += 1
 				break
-	pass
 
 def setup_first_robot_input_plans_all_codes(lines):
 	# Tackle all output codes at once.
@@ -387,39 +399,95 @@ def setup_first_robot_input_plans_all_codes(lines):
 		kc1 = plan_keycount(p1)
 		push_open_plan(1, kc1, p1)
 
+# directional keystrokes needed to produce required door code.
+# Assume initially at 'A' key.
+def robot1_first_solution(code):
+	pos = 'A'
+	options = []
+	for dest in code:
+		seq = ['A'] if pos == dest else [ks + 'A' for ks in lookup_num_transit(pos, dest)]
+		options.append(seq)
+		pos = dest	
+	for keystring in itertools.product(*options):
+		return ''.join(keystring)
+
+def lookup_dir_transit_first_solution(from_key, to_key):
+	global dir_keypad_transits
+	for (f1, t1, ks) in dir_keypad_transits:
+		if f1 == from_key and t1 == to_key:
+			return ks
+	return None
+
+def get_key_presses(src, dest, num_robots):
+	global keycount_cache
+
+	if (src,dest,num_robots) in keycount_cache:
+		return keycount_cache[(src,dest,num_robots)]
+
+	key_presses = 0
+	code = 'A' if src == dest else lookup_dir_transit_first_solution(src, dest) + 'A'
+
+	if num_robots == 1:
+		key_presses = len(code)
+	else:
+		pos1 = 'A'
+		for pos2 in code:
+			count = get_key_presses(pos1, pos2, num_robots - 1)
+			key_presses += count
+			pos1 = pos2
+
+	keycount_cache[(src,dest,num_robots)] = key_presses
+	return key_presses
+
 def part2_for(file_name, num_robot_levels):
 	clear_global_plans()
 	lines = read_input(file_name)
 	compile_num_keypad_transits()
-	score = 0
-	setup_first_robot_input_plans_all_codes(lines)
 
-	kc1,plan1 = pop_open_plan(1)
-	for code,count in plan1.items():
-		plan = best_two_level_plan_for_code(code)
+	total_complexity = 0
+	for code in lines:
+		r1_incode = robot1_first_solution(code)
+		numpart = int(code[:-1])
 
+		total_keys = 0
+		pos1 = 'A'
+		for pos2 in r1_incode:
+			count = get_key_presses(pos1, pos2, num_robot_levels)
+			total_keys += count
+			pos1 = pos2
+		
+		total_complexity += total_keys * numpart
 
-	expand(num_robot_levels)
-	return score
+	return total_complexity
 
+# Incorrect:
 # 159907381897160 too low (24 rbt)
 # 314444784819888 too high (25 rbt)
 # 410660523597582 too high (25 rbt)
+# 898090265980 
+# 940731047570
+# 471057686365026
+
+# ??
+# 254726869133992
+# 220649974646408
+
+# TARGET: 
+# 245881705840972
 
 # Main processing.
-# print('Advent of Code 2024 - Day 21, Part 1.')
-# print('Running test...')
-# count = part1_for(test_file)
-# print(f"Result is {count}")
+print('Advent of Code 2024 - Day 21, Part 1.')
+print('Running test...')
+count = part1_for(test_file)
+print(f"Result is {count}")
 
-# print('Running full input...')
-# count = part1_for(input_file)
-# print(f"Result is {count}")
+print('Running full input...')
+count = part1_for(input_file)
+print(f"Result is {count}")
 
 print('Part 2.')
 print('Running full input...')
-# count = part2_for(input_file)
-count = part2_for(test_file, 3)
+count = part2_for(input_file, 25)
 print(f"Result is {count}")
 
 print("Done")
