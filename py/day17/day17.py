@@ -272,6 +272,7 @@ def find_input_sequence(outputs, input_options):
 	# 						yield [in1,in2]
 					
 # 265220867825053 too high.
+# 35184372088832 too low.
 
 # def custom_2411750347165530
 # Main input file program.
@@ -377,6 +378,13 @@ def part2_for(file_name, seed, expected):
 		a += 1
 	return a
 
+def dummy_for(file_name, input_value):
+	lines = read_input(file_name)
+	(registers, program) = process_lines(lines)
+	registers['A'] = input_value
+	out = exec_program(program, registers)
+	return ','.join([str(r) for r in out])
+
 # Main processing.
 print('Advent of Code 2024 - Day 17, Part 1.')
 print('Running test...')
@@ -386,6 +394,10 @@ print(f"Result is {count}")
 print('Running full input...')
 count = part1_for(input_file)
 print(f"Result is {count}")
+
+dummy = dummy_for(input_file, 301242)
+print(f"Dummy is {dummy}.")
+exit(0)
 
 print('Part 2.')
 print('Running test...')
