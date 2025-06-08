@@ -79,6 +79,18 @@ def register_bits(wires, prefix):
 	bits = [wires[wn] for wn in names]
 	return bits
 
+def load_register(wires, prefix, value):
+	bits = bits_from_value(value)
+	while len(bits) < len(wires):
+		bits.append(0)
+	register = {}
+	for i in range(len(bits)):
+		name = "{p}{v:02d}".format(p = prefix, v = i)
+		if name not in wires:
+			break
+		register[name] = bits[i]
+	return register
+
 def result_from_bits(bits):
 	result = 0
 	i = 1
@@ -144,16 +156,43 @@ def find_swaps(wires, actual, target, bwd):
 		count = 0
 		for o2 in deps:
 			if o1 != o2:
-				if 
+				pass
+	# 			if 
 
 		
-	dep_counts 
+	# dep_counts 
 
 	pass
 
 def part2_for(file_name):
 	lines = read_input(file_name)
 	wires, fwd, bwd = process_lines(lines)
+
+	xwires = {k:v for k,v in wires.items() if k[0] == 'x'}
+	ywires = {k:v for k,v in wires.items() if k[0] == 'y'}
+	zwires = {k:v for k,v in wires.items() if k[0] == 'z'}
+	
+	for xvalue in range(256):
+		xreg = load_register(xwires, 'x', xvalue)
+		for yvalue in range(256):
+			yreg = load_register(ywires, 'y', yvalue)
+
+			input_wires = xreg | yreg
+			zvalue = xvalue + yvalue
+			wires2 = propagate(input_wires, fwd, bwd)
+			zbits = register_bits(wires2, 'z')
+			zactual = result_from_bits(zbits)
+
+			if zactual != zvalue:
+				break
+
+
+
+
+
+
+
+
 	wires2 = propagate(wires, fwd, bwd)
 	xbits = register_bits(wires2, 'x')
 	ybits = register_bits(wires2, 'y')

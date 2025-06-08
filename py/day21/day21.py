@@ -108,6 +108,7 @@ def compile_num_keypad_transits():
 						break
 				if ok:
 					kl.append(ks)
+			
 
 			result.append((k1, k2, kl))
 			
@@ -119,6 +120,36 @@ def lookup_num_transit(from_key, to_key):
 		if f1 == from_key and t1 == to_key:
 			for ks in kl:
 				yield ks
+	return None
+
+def score_num_transit(code):
+	score = 0
+	nc = 0
+	c1 = code[0]
+	c2 = None
+	for i in range(1, len(code)):
+		if code[i] != code[i-1]:
+			nc += 1
+		if code[i] != c1:
+			c2 = code[i]
+	score += nc * 10
+	order = ['<', 'v', '>', '^', 'A']
+	if c2:
+		c1seen = False
+		for oc in order:
+			if oc == c1:
+				c1seen = True
+			if oc == c2 and not c1seen:
+				score += 5
+				break
+	return score
+
+def lookup_num_transit_best_single(from_key, to_key):
+	global num_keypad_transits
+	for (f1, t1, kl) in num_keypad_transits:
+		if f1 == from_key and t1 == to_key:
+			kl2 = sorted(kl, key=score_num_transit)
+			return kl2[0]
 	return None
 
 def lookup_dir_transit(from_key, to_key):
@@ -405,7 +436,7 @@ def robot1_first_solution(code):
 	pos = 'A'
 	options = []
 	for dest in code:
-		seq = ['A'] if pos == dest else [ks + 'A' for ks in lookup_num_transit(pos, dest)]
+		seq = ['A'] if pos == dest else [lookup_num_transit_best_single(pos, dest) + 'A']
 		options.append(seq)
 		pos = dest	
 	for keystring in itertools.product(*options):
