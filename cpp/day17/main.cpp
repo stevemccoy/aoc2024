@@ -45,7 +45,7 @@ int main()
     std::cout << "Part 2.\n";
     const char* file_name = "input17.txt";
 
-    number a = (1L << 47);
+    number a = 143380488355327L;
     number pass = custom(a, sizeof(required_output), required_output);
 
     std::cout << "Program succeeded, with value = " << pass << std::endl;
